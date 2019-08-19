@@ -11,11 +11,13 @@ type Observation =
     | NonShockable
     | SwitchToNonShockable
     | SwitchToShockable
+    | SwitchToROSC
     | ROSC
 
 type Evaluation =
     | CheckForSignsOfLife of Observation list
     | CheckRhythm of Observation list
+    | Finished
 
 type Intervention =
     | BLS
@@ -36,9 +38,9 @@ type ProtocolItem =
     | Repeatable of InterventionBlock
     | NonRepeatable of InterventionBlock
 
-type ProtocolBranch = Observation * ProtocolItem list
+type ProtocolBlock = Observation * ProtocolItem list
 
-type Protocol = ProtocolBranch list
+type Protocol = ProtocolBlock list
 
 type Event =
     | Observed of Observation
@@ -49,10 +51,10 @@ type Command =
     | Intervene of Intervention
 
 type GetCurrentProtocolBranch = 
-    Protocol -> Event list -> ProtocolBranch Option
+    Protocol -> Event list -> ProtocolBlock Option
 
 type RemoveNonRepeatableFromBranch =
-    Event list -> ProtocolBranch -> (int * ProtocolItem list)
+    Event list -> ProtocolBlock -> (int * ProtocolItem list)
 
 type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
 
@@ -64,132 +66,6 @@ type ProcessCommand = Command -> Event list -> Event list
 
 module Implementation =
 
-    let unresponsive : ProtocolBranch =
-        Unresponsive,
-        [
-            {
-                Interventions = []
-                Evaluation = 
-                    [ SignsOfLife; NoSignsOfLife ]
-                    |> CheckForSignsOfLife
-            }
-            |> NonRepeatable
-        ]
-
-    let noSignsOfLife : ProtocolBranch =
-        NoSignsOfLife,
-        [
-                {
-                    Interventions = [ BLS ] // Start BLS
-                    Evaluation = 
-                        [ ROSC; NonShockable; SwitchToShockable ]
-                        |> CheckRhythm
-                } |> NonRepeatable
-        ]
-
-    let nonShockable : ProtocolBranch =
-        NonShockable,
-        [
-            {
-                Interventions = [ CPR ]
-                Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
-                    |> CheckRhythm
-            } |> Repeatable
-
-            {
-                Interventions = [ CPR; Adrenalin ]
-                Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
-                    |> CheckRhythm
-            } |> Repeatable
-        ]
-
-    let switchToShockable : ProtocolBranch =
-        SwitchToShockable ,
-        [
-            {
-                Interventions = [ CPR; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> Repeatable
-        ]
-
-    let shockable : ProtocolBranch =
-        Shockable,
-        [
-            // First Shock
-            {
-                Interventions = [ Shock; CPR; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> NonRepeatable
-            // Second Shock
-            {
-                Interventions = [ Shock; CPR; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> NonRepeatable
-            // Third Shock
-            {
-                Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> NonRepeatable
-            // Fourth Shock
-            {
-                Interventions = [ Shock; CPR; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> NonRepeatable
-            // Fifth Shock
-            {
-                Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> NonRepeatable
-            // Continue ...
-            {
-                Interventions = [ Shock; CPR; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> Repeatable
-            {
-                Interventions = [ Shock; CPR; Adrenalin; ChargeDefib ]
-                Evaluation = 
-                    [ Shockable; SwitchToNonShockable; ROSC ]
-                    |> CheckRhythm
-            } |> Repeatable
-        ]
-
-    let switchToNonShockable : ProtocolBranch =
-        SwitchToNonShockable,
-        [
-            {
-                Interventions = [ UnChargeDefib; CPR ]
-                Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
-                    |> CheckRhythm
-            } |> Repeatable
-        ]
-
-
-    let resuscitation : Protocol =
-        [
-            unresponsive
-            noSignsOfLife
-            switchToShockable
-            nonShockable
-            shockable
-            switchToNonShockable
-        ]
 
     let getCurrentProtocolBranch : GetCurrentProtocolBranch =
         fun p es ->
@@ -277,59 +153,164 @@ module Implementation =
                 |> function 
                 | CheckForSignsOfLife obs 
                 | CheckRhythm obs -> obs |> List.map Observe 
+                | Finished -> []
 
 
-    module Tests =
+module Protocol =
 
-        let es = [ Unresponsive |> Observed ]
-        
-        let run es =
-            es
-            |> getCurrentProtocolBranch resuscitation
-            |> Option.bind ((removeNonRepeatableFromBranch es) >> Some)
-            |> Option.bind (getCurrentProtocolItem)
-            |> Option.bind ((getCommandsFromProtocolItem es) >> Some)
+    let unresponsive : ProtocolBlock =
+        Unresponsive,
+        [
+            {
+                Interventions = []
+                Evaluation = 
+                    [ SignsOfLife; NoSignsOfLife ]
+                    |> CheckForSignsOfLife
+            }
+            |> NonRepeatable
+        ]
+
+    let noSignsOfLife : ProtocolBlock =
+        NoSignsOfLife,
+        [
+                {
+                    Interventions = [ BLS ] // Start BLS
+                    Evaluation = 
+                        [ ROSC; NonShockable; SwitchToShockable ]
+                        |> CheckRhythm
+                } |> NonRepeatable
+        ]
+
+    let nonShockable : ProtocolBlock =
+        NonShockable,
+        [
+            {
+                Interventions = [ CPR ]
+                Evaluation = 
+                    [ ROSC; NonShockable; SwitchToShockable ]
+                    |> CheckRhythm
+            } |> Repeatable
+
+            {
+                Interventions = [ CPR; Adrenalin ]
+                Evaluation = 
+                    [ ROSC; NonShockable; SwitchToShockable ]
+                    |> CheckRhythm
+            } |> Repeatable
+        ]
+
+    let switchToShockable : ProtocolBlock =
+        SwitchToShockable ,
+        [
+            {
+                Interventions = [ CPR; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> Repeatable
+        ]
+
+    let shockable : ProtocolBlock =
+        Shockable,
+        [
+            // First Shock
+            {
+                Interventions = [ Shock; CPR; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> NonRepeatable
+            // Second Shock
+            {
+                Interventions = [ Shock; CPR; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> NonRepeatable
+            // Third Shock
+            {
+                Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> NonRepeatable
+            // Fourth Shock
+            {
+                Interventions = [ Shock; CPR; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> NonRepeatable
+            // Fifth Shock
+            {
+                Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> NonRepeatable
+            // Continue ...
+            {
+                Interventions = [ Shock; CPR; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> Repeatable
+            {
+                Interventions = [ Shock; CPR; Adrenalin; ChargeDefib ]
+                Evaluation = 
+                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    |> CheckRhythm
+            } |> Repeatable
+        ]
+
+    let switchToNonShockable : ProtocolBlock =
+        SwitchToNonShockable,
+        [
+            {
+                Interventions = [ UnChargeDefib; CPR ]
+                Evaluation = 
+                    [ ROSC; NonShockable; SwitchToShockable ]
+                    |> CheckRhythm
+            } |> Repeatable
+        ]
+
+    let switchToROSC : ProtocolBlock =
+        SwitchToROSC,
+        [
+            {
+                Interventions = [ UnChargeDefib ]
+                Evaluation = Finished
+            } |> NonRepeatable
+        ]
+
+    let resuscitation : Protocol =
+        [
+            unresponsive
+            noSignsOfLife
+            switchToShockable
+            nonShockable
+            shockable
+            switchToNonShockable
+            switchToROSC
+        ]
+
+module Tests =
+
+    open Implementation
+
+    let es = [ Unresponsive |> Observed ]
+    
+    let run es =
+        es
+        |> getCurrentProtocolBranch  Protocol.resuscitation
+        |> Option.bind ((removeNonRepeatableFromBranch es) >> Some)
+        |> Option.bind (getCurrentProtocolItem)
+        |> Option.bind ((getCommandsFromProtocolItem es) >> Some)
+
 
 
 open Implementation
 
-let es = 
-    [
-        Observed Unresponsive 
-        Observed NoSignsOfLife
-        Intervened BLS 
-        Observed NonShockable 
-        Intervened CPR 
-        Observed NonShockable
-        Intervened CPR
-        Intervened Adrenalin
-        Observed SwitchToShockable
-        Intervened CPR
-        Intervened ChargeDefib
-        Observed Shockable
-        Intervened Shock
-        Intervened CPR
-        Intervened ChargeDefib
-        Observed Shockable
-        Intervened Shock
-        Intervened CPR
-        Intervened ChargeDefib
-        Observed Shockable
-        Intervened Shock
-        Intervened CPR
-        Intervened ChargeDefib
-        Observed Shockable
-        Intervened Shock
-        Intervened CPR
-        Intervened Adrenalin
-        Intervened Amiodarone
-        Intervened ChargeDefib
-        Observed Shockable
-        Intervened Shock
-    ]
-
-es
-|> Tests.run
 
 open System
 
@@ -366,7 +347,9 @@ let runRandom n =
                 [ e ] |> List.append es |> run false
             | None -> run true es
 
-    [ Observed Unresponsive ] |> run false
+    printfn "Event: %A" (Observed Unresponsive)
+    [ Observed Unresponsive ] 
+    |> run false
 
 
         
