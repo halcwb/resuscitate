@@ -3,15 +3,17 @@
 
 #I __SOURCE_DIRECTORY__
 
+#load  ".paket/load/netcoreapp2.2/main.group.fsx"
+
 type Observation =
     | Unresponsive
     | NoSignsOfLife
     | SignsOfLife
     | Shockable
     | NonShockable
-    | SwitchToNonShockable
-    | SwitchToShockable
-    | SwitchToROSC
+    | ChangeToNonShockable
+    | ChangeToShockable
+    | ChangeToROSC
     | ROSC
 
 type Evaluation =
@@ -176,7 +178,7 @@ module Protocol =
                 {
                     Interventions = [ BLS ] // Start BLS
                     Evaluation = 
-                        [ ROSC; NonShockable; SwitchToShockable ]
+                        [ ROSC; NonShockable; ChangeToShockable ]
                         |> CheckRhythm
                 } |> NonRepeatable
         ]
@@ -187,25 +189,25 @@ module Protocol =
             {
                 Interventions = [ CPR ]
                 Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
+                    [ ROSC; NonShockable; ChangeToShockable ]
                     |> CheckRhythm
             } |> Repeatable
 
             {
                 Interventions = [ CPR; Adrenalin ]
                 Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
+                    [ ROSC; NonShockable; ChangeToShockable ]
                     |> CheckRhythm
             } |> Repeatable
         ]
 
-    let switchToShockable : ProtocolBlock =
-        SwitchToShockable ,
+    let changeToShockable : ProtocolBlock =
+        ChangeToShockable ,
         [
             {
                 Interventions = [ CPR; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
         ]
@@ -217,65 +219,65 @@ module Protocol =
             {
                 Interventions = [ Shock; CPR; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Second Shock
             {
                 Interventions = [ Shock; CPR; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Third Shock
             {
                 Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fourth Shock
             {
                 Interventions = [ Shock; CPR; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fifth Shock
             {
                 Interventions = [ Shock; CPR; Adrenalin; Amiodarone; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Continue ...
             {
                 Interventions = [ Shock; CPR; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
             {
                 Interventions = [ Shock; CPR; Adrenalin; ChargeDefib ]
                 Evaluation = 
-                    [ Shockable; SwitchToNonShockable; SwitchToROSC ]
+                    [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
         ]
 
-    let switchToNonShockable : ProtocolBlock =
-        SwitchToNonShockable,
+    let changeToNonShockable : ProtocolBlock =
+        ChangeToNonShockable,
         [
             {
                 Interventions = [ UnChargeDefib; CPR ]
                 Evaluation = 
-                    [ ROSC; NonShockable; SwitchToShockable ]
+                    [ ROSC; NonShockable; ChangeToShockable ]
                     |> CheckRhythm
             } |> Repeatable
         ]
 
-    let switchToROSC : ProtocolBlock =
-        SwitchToROSC,
+    let changeToROSC : ProtocolBlock =
+        ChangeToROSC,
         [
             {
                 Interventions = [ UnChargeDefib ]
@@ -285,18 +287,27 @@ module Protocol =
 
     let resuscitation : Protocol =
         [
-            unresponsive
-            noSignsOfLife
-            switchToShockable
-            nonShockable
-            shockable
-            switchToNonShockable
-            switchToROSC
+            unresponsive            // Start with an unresponsive patient
+            noSignsOfLife           // When there are no signs of life
+            changeToShockable       // Change to the shockable rhythm block 
+            nonShockable            // Start with a non shockable rhythm
+            shockable               // Continue in the shockable rhythm block
+            changeToNonShockable    // Change to a non shockable rhythm
+            changeToROSC            // Change from shockable to ROSC
         ]
 
 module Tests =
 
+    open System
     open Implementation
+
+    open Expecto
+
+    let expectIsTrue msg b = Expect.isTrue b msg
+
+    let expectExists ass msg act = Expect.exists act ass msg
+
+    let expectEqual act msg exp = Expect.equal act exp msg
 
     let es = [ Unresponsive |> Observed ]
     
@@ -306,50 +317,170 @@ module Tests =
         |> Option.bind ((removeNonRepeatableFromBranch es) >> Some)
         |> Option.bind (getCurrentProtocolItem)
         |> Option.bind ((getCommandsFromProtocolItem es) >> Some)
-
-
-
-open Implementation
-
-
-open System
-
-let runRandom n =
-    printfn "--- Start run %i" n
-
-    let rand = n |> Random
-
-    let pickRand xs =
-        let c = xs |> List.length
-
-        if c = 0 then None
-        else 
-            xs.[ c |> rand.Next ]
-            |> Some
-
-    let procEvs es = 
-        es
-        |> Tests.run
         |> Option.defaultValue []
-        |> List.map (fun c ->
-            match c with
-            | Observe o -> Observed o
-            | Intervene i -> Intervened i
-        )
-        |> pickRand
 
-    let rec run b es =
-        if b then printfn "--- Finished\n\n"
-        else
-            match es |> procEvs with
-            | Some e ->
-                printfn "Event: %A" e
-                [ e ] |> List.append es |> run false
-            | None -> run true es
 
-    printfn "Event: %A" (Observed Unresponsive)
-    [ Observed Unresponsive ] 
-    |> run false
+    let runRandom n =
+        printfn "--- Start run %i" n
 
+        let rand = n |> Random
+
+        let pickRand xs =
+            let c = xs |> List.length
+
+            if c = 0 then None
+            else 
+                xs.[ c |> rand.Next ]
+                |> Some
+
+        let procEvs es = 
+            es
+            |> run
+            |> List.map (fun c ->
+                match c with
+                | Observe o -> Observed o
+                | Intervene i -> Intervened i
+            )
+            |> pickRand
+
+        let rec run b es =
+            if b then 
+                printfn "--- Finished\n\n"
+                es
+            else
+                match es |> procEvs with
+                | Some e ->
+                    printfn "Event: %A" e
+                    [ e ] |> List.append es |> run false
+                | None -> 
+                    run true es
+
+        printfn "Event: %A" (Observed Unresponsive)
+        [ Observed Unresponsive ] 
+        |> run false
+
+
+    let checkCmdsLength n cmds =
+        let c = cmds |> List.length
+        
+        c
+        |> expectEqual n (sprintf "Should have %i commands, but has %i" n c)
+
+
+    let tests =
+        testList "Test resuscitation protocol" [
+        
+            test "For an unresponsive patient" {
+                es
+                |> run
+                |> fun cmds ->
+                    cmds
+                    |> checkCmdsLength 2
+                    
+                    cmds
+                    |> expectExists ((=) (Observe SignsOfLife))
+                                    "Should check for signs of life"
+
+                    cmds 
+                    |> expectExists ((=) (Observe NoSignsOfLife))
+                                    "Should check for signs of life"
+            }
+        
+            test "When a patient has signs of life" {
+                [ Observed SignsOfLife ]
+                |> List.append es
+                |> run
+                |> fun cmds ->
+                    cmds
+                    |> checkCmdsLength 0
+
+            }
+
+            test "When a patient has no signs of life" {
+                [ Observed NoSignsOfLife ]
+                |> List.append es
+                |> run
+                |> fun cmds ->
+                    cmds
+                    |> checkCmdsLength 1
+                    
+                    cmds 
+                    |> expectExists ((=) (Intervene BLS)) 
+                                    "Should start BLS"
+
+            }
+
+            test "When a patient has had basic life support" {
+                [ Observed NoSignsOfLife; Intervened BLS ]
+                |> List.append es
+                |> run
+                |> fun cmds -> 
+                    cmds
+                    |> checkCmdsLength 3
+                    // Check command 1
+                    cmds
+                    |> expectExists ((=) (Observe ChangeToShockable)) 
+                                         "Should check for a change to shockable rhythm"
+                    // Check command 2
+                    cmds
+                    |> expectExists ((=) (Observe NonShockable)) 
+                                         "Should check for a non shockable rhythm"
+                    // Check command 3
+                    cmds
+                    |> expectExists ((=) (Observe ROSC)) 
+                                         "Should check for a return of spontaneous circulation"
+            }
+
+            test "When a patient has a non shockable rhythm" {
+                [ Observed NoSignsOfLife; Intervened BLS; Observed NonShockable ]
+                |> List.append es
+                |> run
+                |> fun cmds -> 
+                    cmds
+                    |> checkCmdsLength 1
+                    // Check command 1
+                    cmds
+                    |> expectExists ((=) (Intervene CPR)) 
+                                         "Should start cardiopulmonary resuscitation"
+            }
+
+            test "When a patient has a shockable rhythm" {
+                [ Observed NoSignsOfLife; Intervened BLS; Observed ChangeToShockable ]
+                |> List.append es
+                |> run
+                |> fun cmds -> 
+                    cmds
+                    |> checkCmdsLength 1
+                    // Check command 1
+                    cmds
+                    |> expectExists ((=) (Intervene CPR)) 
+                                         "Should start cardiopulmonary resuscitation"
+            }
+
+            test "When a patient has a shockable rhythm and CPR" {
+                [ Observed NoSignsOfLife
+                  Intervened BLS
+                  Observed ChangeToShockable
+                  Intervened CPR ]
+                |> List.append es
+                |> run
+                |> fun cmds -> 
+                    cmds
+                    |> checkCmdsLength 1
+                    // Check command 1
+                    cmds
+                    |> expectExists ((=) (Intervene ChargeDefib)) 
+                                         "Should charge the defibrillator"
+            }
+
+        ]
+
+
+
+open Expecto
+
+let run () =
+    Tests.tests
+    |> runTests defaultConfig 
 
         
