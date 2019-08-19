@@ -50,10 +50,10 @@ type Command =
     | Observe of Observation
     | Intervene of Intervention
 
-type GetCurrentProtocolBranch = 
+type GetCurrentProtocolBlock = 
     Protocol -> Event list -> ProtocolBlock Option
 
-type RemoveNonRepeatableFromBranch =
+type RemoveNonRepeatableFromBlock =
     Event list -> ProtocolBlock -> (int * ProtocolItem list)
 
 type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
@@ -67,7 +67,7 @@ type ProcessCommand = Command -> Event list -> Event list
 module Implementation =
 
 
-    let getCurrentProtocolBranch : GetCurrentProtocolBranch =
+    let getCurrentProtocolBranch : GetCurrentProtocolBlock =
         fun p es ->
             let lastObs =
                 es 
@@ -101,7 +101,7 @@ module Implementation =
 
             remove (n, 0) protocolItems
 
-    let removeNonRepeatableFromBranch : RemoveNonRepeatableFromBranch =
+    let removeNonRepeatableFromBranch : RemoveNonRepeatableFromBlock =
         fun es pb  ->
             let obs, ps = pb
             let n =
