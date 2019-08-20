@@ -25,7 +25,7 @@ type Intervention =
     | BLS
     | CPR
     | ChargeDefib
-    | UnChargeDefib
+    | DischargeDefib
     | Shock
     | Adrenalin
     | Amiodarone
@@ -269,7 +269,7 @@ module Protocol =
         ChangeToNonShockable,
         [
             {
-                Interventions = [ UnChargeDefib; CPR ]
+                Interventions = [ DischargeDefib; CPR ]
                 Evaluation = 
                     [ ROSC; NonShockable; ChangeToShockable ]
                     |> CheckRhythm
@@ -280,7 +280,7 @@ module Protocol =
         ChangeToROSC,
         [
             {
-                Interventions = [ UnChargeDefib ]
+                Interventions = [ DischargeDefib ]
                 Evaluation = Finished
             } |> NonRepeatable
         ]
@@ -533,7 +533,7 @@ module Tests =
                     | x1::x2::_ ->
                         x1 = (Observed SignsOfLife) ||
                         x1 = (Observed ROSC) ||
-                        (x2 = (Observed ChangeToROSC) && x1 = (Intervened UnChargeDefib))
+                        (x2 = (Observed ChangeToROSC) && x1 = (Intervened DischargeDefib))
                     |> expectIsTrue "Signs of life or ROSC or change to ROSC and uncharge"
 
                 testProperty "For all possible runs, the defibrillator" <| fun n ->
@@ -546,10 +546,10 @@ module Tests =
                             | Some (Intervened ChargeDefib), Intervened ChargeDefib -> false, None
                             | _, Intervened ChargeDefib -> true, Some e
 
-                            | Some (Intervened ChargeDefib), Intervened UnChargeDefib 
+                            | Some (Intervened ChargeDefib), Intervened DischargeDefib 
                             | Some (Intervened ChargeDefib), Intervened Shock -> true, None
                             
-                            | _, Intervened UnChargeDefib -> false, None
+                            | _, Intervened DischargeDefib -> false, None
                             | _, Intervened Shock -> false, None
                             | _, _ -> a
 
@@ -558,7 +558,7 @@ module Tests =
                     | false, _ -> false
                     | true, Some (Intervened ChargeDefib) -> false
                     | true, _ -> true
-                    |> expectIsTrue "Should always first be charged and then be uncharged or used to shock"
+                    |> expectIsTrue "Should always first be charged and then be discharged or used to shock"
 
             ]
 
