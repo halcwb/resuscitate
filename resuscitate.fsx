@@ -513,7 +513,7 @@ module Tests =
                     |> List.filter ((=) (Intervened BLS ))
                     |> List.length
                     |> (fun x -> x <= 1)
-                    |> expectIsTrue "Should only be intervened at most once"
+                    |> expectIsTrue "Should be intervened at most once"
 
                 testProperty "For all possible runs, amiodarone" <| fun n ->
                     n 
@@ -521,23 +521,44 @@ module Tests =
                     |> List.filter ((=) (Intervened BLS ))
                     |> List.length
                     |> (fun x -> x <= 2)
-                    |> expectIsTrue "Should only be intervened at most twice"
+                    |> expectIsTrue "Should be intervened at most twice"
 
                 testProperty "For all possible runs, should end with" <| fun n ->
                     n 
                     |> testRun
                     |> List.rev
                     |> function
-                    | [] -> false
-                    | [x] -> 
-                        x = (Observed SignsOfLife) ||
-                        x = (Observed ROSC)
+                    | [] 
+                    | [_] -> false
                     | x1::x2::_ ->
                         x1 = (Observed SignsOfLife) ||
                         x1 = (Observed ROSC) ||
-                        (x2 = (Observed ChangeToROSC) &&
-                         x1 = (Intervened UnChargeDefib))
-                    |> expectIsTrue "Signs of life or ROSC or change to ROSC and decharge"
+                        (x2 = (Observed ChangeToROSC) && x1 = (Intervened UnChargeDefib))
+                    |> expectIsTrue "Signs of life or ROSC or change to ROSC and uncharge"
+
+                testProperty "For all possible runs, the defibrillator" <| fun n ->
+                    n 
+                    |> testRun
+                    |> List.fold (fun a e ->
+                        if a |> fst |> not then a
+                        else
+                            match a |> snd, e with
+                            | Some (Intervened ChargeDefib), Intervened ChargeDefib -> false, None
+                            | _, Intervened ChargeDefib -> true, Some e
+
+                            | Some (Intervened ChargeDefib), Intervened UnChargeDefib 
+                            | Some (Intervened ChargeDefib), Intervened Shock -> true, None
+                            
+                            | _, Intervened UnChargeDefib -> false, None
+                            | _, Intervened Shock -> false, None
+                            | _, _ -> a
+
+                    ) (true, None)
+                    |> function 
+                    | false, _ -> false
+                    | true, Some (Intervened ChargeDefib) -> false
+                    | true, _ -> true
+                    |> expectIsTrue "Should always first be charged and then be uncharged or used to shock"
 
             ]
 
