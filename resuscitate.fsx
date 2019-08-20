@@ -368,6 +368,49 @@ module Tests =
         |> expectEqual n (sprintf "Should have %i commands, but has %i" n c)
 
 
+    let testChargeDischarge es =
+        es
+        |> List.fold (fun a e ->
+            if a |> fst |> not then a
+            else
+                match a |> snd, e with
+                // Cannot charge twice at a row
+                | Some (Intervened ChargeDefib), Intervened ChargeDefib -> 
+                    false, None
+                // Otherwise can charge
+                | _, Intervened ChargeDefib -> 
+                    true, Some e
+                // When charge can shock or decharge
+                | Some (Intervened ChargeDefib), Intervened DischargeDefib 
+                | Some (Intervened ChargeDefib), Intervened Shock -> 
+                    true, None
+                // Otherwise cannot discharge or shock
+                | _, Intervened DischargeDefib 
+                | _, Intervened Shock -> 
+                    false, None
+                // Otherwise nothing relevant happened
+                | _, _ -> a
+
+        ) (true, None)
+        |> function 
+        | false, _ -> false
+        | true, Some (Intervened ChargeDefib) -> false // Events end with charged but no discharge occurred
+        | true, _ -> true
+        |> expectIsTrue "Should always first be charged and then be discharged or used to shock"
+
+    module LongRunning =
+
+        let testChargeDischarge () =
+            [1..10000]
+            |> List.map (fun n -> n |> runRandom ignore)
+            |> List.distinct
+            |> List.iteri (fun i es ->
+                printfn "test %i" i
+                es
+                |> testChargeDischarge
+            )
+
+
     let tests =
 
         let testRun n =
@@ -539,33 +582,7 @@ module Tests =
                 testProperty "For all possible runs, the defibrillator" <| fun n ->
                     n 
                     |> testRun
-                    |> List.fold (fun a e ->
-                        if a |> fst |> not then a
-                        else
-                            match a |> snd, e with
-                            // Cannot charge twice at a row
-                            | Some (Intervened ChargeDefib), Intervened ChargeDefib -> 
-                                false, None
-                            // Otherwise can charge
-                            | _, Intervened ChargeDefib -> 
-                                true, Some e
-                            // When charge can shock or decharge
-                            | Some (Intervened ChargeDefib), Intervened DischargeDefib 
-                            | Some (Intervened ChargeDefib), Intervened Shock -> 
-                                true, None
-                            // Otherwise cannot discharge or shock
-                            | _, Intervened DischargeDefib 
-                            | _, Intervened Shock -> 
-                                false, None
-                            // Otherwise nothing relevant happened
-                            | _, _ -> a
-
-                    ) (true, None)
-                    |> function 
-                    | false, _ -> false
-                    | true, Some (Intervened ChargeDefib) -> false // Events end with charged but no discharge occurred
-                    | true, _ -> true
-                    |> expectIsTrue "Should always first be charged and then be discharged or used to shock"
+                    |> testChargeDischarge
 
             ]
 
@@ -580,3 +597,18 @@ let run () =
     |> runTests defaultConfig 
 
 Tests.runRandom (printfn "%s") 3
+
+[1..10000]
+|> List.map (fun n -> n |> Tests.runRandom ignore)
+|> List.distinct
+|> List.sortBy (List.length)
+|> List.iter (fun es ->
+    printfn "-- Scenario with %i events" (es |> List.length)
+    es
+    |> List.iter (fun e ->
+        printfn "Event: %A" e 
+    )
+    printfn "-- Finish\n"
+)
+
+Tests.LongRunning.testChargeDischarge ()
