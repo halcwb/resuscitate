@@ -57,6 +57,7 @@ publishnuget.cmd
 
 # Add configurarion files
 !*app.config
+!webpack.config.js
 
 # Add fsharp source files
 !*.fs
