@@ -543,20 +543,27 @@ module Tests =
                         if a |> fst |> not then a
                         else
                             match a |> snd, e with
-                            | Some (Intervened ChargeDefib), Intervened ChargeDefib -> false, None
-                            | _, Intervened ChargeDefib -> true, Some e
-
+                            // Cannot charge twice at a row
+                            | Some (Intervened ChargeDefib), Intervened ChargeDefib -> 
+                                false, None
+                            // Otherwise can charge
+                            | _, Intervened ChargeDefib -> 
+                                true, Some e
+                            // When charge can shock or decharge
                             | Some (Intervened ChargeDefib), Intervened DischargeDefib 
-                            | Some (Intervened ChargeDefib), Intervened Shock -> true, None
-                            
-                            | _, Intervened DischargeDefib -> false, None
-                            | _, Intervened Shock -> false, None
+                            | Some (Intervened ChargeDefib), Intervened Shock -> 
+                                true, None
+                            // Otherwise cannot discharge or shock
+                            | _, Intervened DischargeDefib 
+                            | _, Intervened Shock -> 
+                                false, None
+                            // Otherwise nothing relevant happened
                             | _, _ -> a
 
                     ) (true, None)
                     |> function 
                     | false, _ -> false
-                    | true, Some (Intervened ChargeDefib) -> false
+                    | true, Some (Intervened ChargeDefib) -> false // Events end with charged but no discharge occurred
                     | true, _ -> true
                     |> expectIsTrue "Should always first be charged and then be discharged or used to shock"
 
@@ -572,4 +579,4 @@ let run () =
     Tests.tests
     |> runTests defaultConfig 
 
-Tests.runRandom (printfn "%s") 0
+Tests.runRandom (printfn "%s") 3
