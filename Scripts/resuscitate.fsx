@@ -3,7 +3,7 @@
 
 #I __SOURCE_DIRECTORY__
 
-#load  ".paket/load/netstandard2.0/Test/test.group.fsx"
+#load  "../.paket/load/netstandard2.0/Test/test.group.fsx"
 
 type Observation =
     | Unresponsive

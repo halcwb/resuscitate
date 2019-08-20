@@ -10,11 +10,15 @@ open Thoth.Json
 
 open Shared
 
+type Model2 = Command list * Event list
+
 // The model holds data that you want to keep track of while the application is running
 // in this case, we are keeping track of a counter
 // we mark it as optional, because initially it will not be available from the client
 // the initial value will be requested from server
 type Model = { Counter: Counter option }
+
+type Msg2 = Command
 
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
@@ -23,7 +27,17 @@ type Msg =
     | Decrement
     | InitialCountLoaded of Counter
 
+let initialModel : Model2 =
+    let el = [ Observed Unresponsive ]
+    let cl = el |> Implementation.getCommands
+
+    cl, el
+
 let initialCounter () = Fetch.fetchAs<Counter> "/api/init"
+
+let init2 () : Model2 * Cmd<Msg2> =
+    let initialModel = initialModel
+    initialModel, Cmd.none
 
 // defines the initial state and initial command (= side-effect) of the application
 let init () : Model * Cmd<Msg> =
@@ -31,6 +45,14 @@ let init () : Model * Cmd<Msg> =
     let loadCountCmd =
         Cmd.OfPromise.perform initialCounter () InitialCountLoaded
     initialModel, loadCountCmd
+
+let update2 (msg: Msg2) (currentModel : Model2) : Model2 * Cmd<Msg2> =
+    let newModel =
+        currentModel
+        |> snd
+        |> Implementation.processCommand msg
+
+    newModel, Cmd.none
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
@@ -74,6 +96,18 @@ let show = function
     | { Counter = Some counter } -> string counter.Value
     | { Counter = None   } -> "Loading..."
 
+let createButtons dispatch cl =
+    cl    
+    |> List.map (fun c ->
+        button [ OnClick (fun _ -> dispatch c) ] [ str (c |> sprintf "%A") ]
+    )
+
+let view2 (model : Model2) (dispatch : Msg2 -> unit) =
+    let buttons = model |> fst |> createButtons dispatch
+    div []
+        ([ h1 [] [ str "Rescitate app" ] ] @ buttons)    
+
+
 let view (model : Model) (dispatch : Msg -> unit) =
     div []
         [ h1 [] [ str "SAFE Template" ]
@@ -89,7 +123,7 @@ open Elmish.Debug
 open Elmish.HMR
 #endif
 
-Program.mkProgram init update view
+Program.mkProgram init2 update2 view2
 #if DEBUG
 |> Program.withConsoleTrace
 #endif
