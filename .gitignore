@@ -59,10 +59,17 @@ publishnuget.cmd
 # Add fsharp source files
 !*.fs
 !*.fsx
+!*.scss
+!*.html
+!*.png
 
 # Add source files
 !/scripts/
 !/src/
+!/src/Server/
+!/src/Client/
+!/src/Client/Public/
+!/src/Shared/
 
 
 # Add test files
