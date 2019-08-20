@@ -296,6 +296,7 @@ module Protocol =
             changeToROSC            // Change from shockable to ROSC
         ]
 
+
 module Tests =
 
     open System
@@ -320,8 +321,8 @@ module Tests =
         |> Option.defaultValue []
 
 
-    let runRandom n =
-        printfn "--- Start run %i" n
+    let runRandom f n =
+        sprintf "--- Start run %i" n |> f
 
         let rand = n |> Random
 
@@ -345,17 +346,17 @@ module Tests =
 
         let rec run b es =
             if b then 
-                printfn "--- Finished\n\n"
+                sprintf "--- Finished\n\n" |> f
                 es
             else
                 match es |> procEvs with
                 | Some e ->
-                    printfn "Event: %A" e
+                    sprintf "Event: %A" e |> f
                     [ e ] |> List.append es |> run false
                 | None -> 
                     run true es
 
-        printfn "Event: %A" (Observed Unresponsive)
+        sprintf "Event: %A" (Observed Unresponsive) |> f
         [ Observed Unresponsive ] 
         |> run false
 
@@ -368,6 +369,12 @@ module Tests =
 
 
     let tests =
+
+        let testRun n =
+            n 
+            |> (fun n -> if n < 0 then -3 * n else n)
+            |> runRandom ignore
+
         testList "Test resuscitation protocol" [
         
             test "For an unresponsive patient" {
@@ -473,6 +480,67 @@ module Tests =
                                          "Should charge the defibrillator"
             }
 
+            test "When the defibrillator has been charged" {
+                [ Observed NoSignsOfLife
+                  Intervened BLS
+                  Observed ChangeToShockable
+                  Intervened CPR
+                  Intervened ChargeDefib]
+                |> List.append es
+                |> run
+                |> fun cmds -> 
+                    cmds
+                    |> checkCmdsLength 3
+                    // Check command 1
+                    cmds
+                    |> expectExists ((=) (Observe Shockable)) 
+                                         "Should check for a shockable rhythm"
+                    // Check command 2
+                    cmds
+                    |> expectExists ((=) (Observe ChangeToNonShockable)) 
+                                         "Should check for a change to non shockable rhythm"
+                    // Check command 3
+                    cmds
+                    |> expectExists ((=) (Observe ChangeToROSC)) 
+                                         "Should check for a change to ROSC"
+            }
+
+            testList "Random runs" [
+                
+                testProperty "For all possible runs, BLS" <| fun n ->
+                    n 
+                    |> testRun
+                    |> List.filter ((=) (Intervened BLS ))
+                    |> List.length
+                    |> (fun x -> x <= 1)
+                    |> expectIsTrue "Should only be intervened at most once"
+
+                testProperty "For all possible runs, amiodarone" <| fun n ->
+                    n 
+                    |> testRun
+                    |> List.filter ((=) (Intervened BLS ))
+                    |> List.length
+                    |> (fun x -> x <= 2)
+                    |> expectIsTrue "Should only be intervened at most twice"
+
+                testProperty "For all possible runs, should end with" <| fun n ->
+                    n 
+                    |> testRun
+                    |> List.rev
+                    |> function
+                    | [] -> false
+                    | [x] -> 
+                        x = (Observed SignsOfLife) ||
+                        x = (Observed ROSC)
+                    | x1::x2::_ ->
+                        x1 = (Observed SignsOfLife) ||
+                        x1 = (Observed ROSC) ||
+                        (x2 = (Observed ChangeToROSC) &&
+                         x1 = (Intervened UnChargeDefib))
+                    |> expectIsTrue "Signs of life or ROSC or change to ROSC and decharge"
+
+            ]
+
         ]
 
 
@@ -483,4 +551,4 @@ let run () =
     Tests.tests
     |> runTests defaultConfig 
 
-        
+Tests.runRandom (printfn "%s") 0
