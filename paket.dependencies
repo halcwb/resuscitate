@@ -19,6 +19,7 @@ group Client
     nuget Fable.Elmish.React ~> 3
     nuget Thoth.Fetch ~> 1
     nuget Fable.React ~> 5
+	nuget Fable.MaterialUI
 
 group Build
     source https://api.nuget.org/v3/index.json

@@ -71,7 +71,7 @@ module Protocol =
             {
                 Interventions = []
                 Evaluation = 
-                    [ SignsOfLife; NoSignsOfLife ]
+                    [ NoSignsOfLife; SignsOfLife ]
                     |> CheckForSignsOfLife
             }
             |> NonRepeatable
@@ -83,7 +83,7 @@ module Protocol =
                 {
                     Interventions = [ BLS ] // Start BLS
                     Evaluation = 
-                        [ ROSC; NonShockable; ChangeToShockable ]
+                        [ NonShockable; ChangeToShockable; ROSC ]
                         |> CheckRhythm
                 } |> NonRepeatable
         ]
@@ -94,14 +94,14 @@ module Protocol =
             {
                 Interventions = [ CPR ]
                 Evaluation = 
-                    [ ROSC; NonShockable; ChangeToShockable ]
+                    [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
 
             {
                 Interventions = [ CPR; Adrenalin ]
                 Evaluation = 
-                    [ ROSC; NonShockable; ChangeToShockable ]
+                    [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
         ]
@@ -174,9 +174,9 @@ module Protocol =
         ChangeToNonShockable,
         [
             {
-                Interventions = [ DischargeDefib; CPR ]
+                Interventions = [ CPR; DischargeDefib ]
                 Evaluation = 
-                    [ ROSC; NonShockable; ChangeToShockable ]
+                    [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
         ]
