@@ -202,6 +202,53 @@ module Protocol =
         ]
 
 
+    let printEvent e =
+        match e with
+        | Observed o ->
+            match o with
+            | Unresponsive -> "The patient was Non Responsive"
+            | NoSignsOfLife -> "The patient showed No Signs of Life"
+            | SignsOfLife -> "The patient showed Signs of Life"
+            | Shockable -> "A Shockable rhythm was observed"
+            | NonShockable -> "A NON Shockable rhythm was observed"
+            | ChangeToNonShockable -> "The rhythm changed to a NON Shockable rhythm"
+            | ChangeToShockable -> "The rhythm changed to a Shockable rhythm"
+            | ChangeToROSC -> "There was a Return Of Spontaneous Circulation"
+            | ROSC -> "There was a Return Of Spontaneous Circulation"
+        | Intervened i ->
+            match i with
+            | BLS -> "Basic Life Support was given"
+            | CPR -> "Continous Pulmonary Resuscitation was started"
+            | ChargeDefib -> "The Defibrillator was Charged"
+            | DischargeDefib -> "The Defibrillator was Discharged"
+            | Shock -> "A Shock was given"
+            | Adrenalin -> "Adrenalin was given"
+            | Amiodarone -> "Amiodarone was given"
+
+
+    let printCommand c =
+        match c with
+        | Observe o ->
+            match o with
+            | Unresponsive -> "The patient is NON RESPONSIVE"
+            | NoSignsOfLife -> "The patient shows NO SIGNS OF LIFE"
+            | SignsOfLife -> "The patient shows SIGNS OF LIFE"
+            | Shockable -> "A SHOCKABLE rhythm is observed"
+            | NonShockable -> "A NON SHOCKABLE rhythm is observed"
+            | ChangeToNonShockable -> "A NON SHOCKABLE rhythm is observed"
+            | ChangeToShockable -> "A SHOCKABLE rhythm is observed"
+            | ChangeToROSC -> "There is a ROSC"
+            | ROSC -> "There is a ROSC"
+        | Intervene i ->
+            match i with
+            | BLS -> "Start BLS"
+            | CPR -> "Resume CPR"
+            | ChargeDefib -> "CHARGE the Defibrillator"
+            | DischargeDefib -> "DISCHARGE the Defibrillator"
+            | Shock -> "Apply a SHOCK"
+            | Adrenalin -> "Give ADRENALIN"
+            | Amiodarone -> "Give AMIODARONE"
+
 
 module Implementation =
 
