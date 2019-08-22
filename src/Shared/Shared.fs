@@ -20,8 +20,9 @@ type Evaluation =
 
 type Intervention =
     | BLS
-    | CPR
+    | CPRStart
     | CPR2Min
+    | CPRStop
     | ChargeDefib
     | DischargeDefib
     | Shock
@@ -92,14 +93,14 @@ module Protocol =
         NonShockable,
         [
             {
-                Interventions = [ CPR2Min ]
+                Interventions = [ CPR2Min; CPRStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
 
             {
-                Interventions = [ CPR2Min; Adrenalin ]
+                Interventions = [ CPR2Min; Adrenalin; CPRStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -110,7 +111,7 @@ module Protocol =
         ChangeToShockable ,
         [
             {
-                Interventions = [ CPR; ChargeDefib ]
+                Interventions = [ CPRStart; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -122,48 +123,48 @@ module Protocol =
         [
             // First Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Second Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Third Shock
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fourth Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fifth Shock
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Continue ...
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; ChargeDefib ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; ChargeDefib; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -174,7 +175,7 @@ module Protocol =
         ChangeToNonShockable,
         [
             {
-                Interventions = [ CPR2Min; DischargeDefib ]
+                Interventions = [ CPR2Min; DischargeDefib; CPRStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -218,7 +219,8 @@ module Protocol =
         | Intervened i ->
             match i with
             | BLS -> "Basic Life Support was given"
-            | CPR | CPR2Min -> "Continous Pulmonary Resuscitation was started"
+            | CPRStart | CPR2Min -> "Cardio Pulmonary Resuscitation was Started"
+            | CPRStop -> "Cardio Pulmonary Resuscitation was Stopped"
             | ChargeDefib -> "The Defibrillator was Charged"
             | DischargeDefib -> "The Defibrillator was Discharged"
             | Shock -> "A Shock was given"
@@ -242,7 +244,8 @@ module Protocol =
         | Intervene i ->
             match i with
             | BLS -> "Start BLS"
-            | CPR | CPR2Min -> "Resume CPR"
+            | CPRStart | CPR2Min -> "Resume CPR"
+            | CPRStop -> "Stop CPR"
             | ChargeDefib -> "CHARGE the Defibrillator"
             | DischargeDefib -> "DISCHARGE the Defibrillator"
             | Shock -> "Apply a SHOCK"
@@ -257,13 +260,17 @@ module Protocol =
                 "Start CPR (15:2)"
                 "Attach Defibrillator/Monitor"
             ]
-        | CPR -> 
+        | CPRStart -> 
             [
                 "Resume CPR (15:2)"
             ]
         | CPR2Min -> 
             [
                 "Resume CPR (15:2) for 2 min"
+            ]
+        | CPRStop ->
+            [
+                "Stop CPR after 2 min"
             ]
         | ChargeDefib -> 
             [
