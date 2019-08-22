@@ -18,17 +18,27 @@ open Shared
 
 // === MODEL ===
 
-type Model = Command list * Event list
+type Model = 
+    { 
+        Description : Description list
+        Commands : Command list
+        Events: Event list
+    }
 
 type Msg =
     | NavBarMsg
     | CommandMsg of Command
 
 let initialModel : Model =
-    let el = [ Observed Unresponsive ]
-    let cl = el |> Implementation.getCommands
-
-    cl, el
+    let es = [ Observed Unresponsive ]
+    let ds, cs =
+        es
+        |> Implementation.getCommands
+    {
+        Description = ds
+        Commands = cs
+        Events = es
+    }
 
 let init () : Model * Cmd<Msg> =
     let initialModel = initialModel
@@ -38,12 +48,15 @@ let update (msg: Msg) (currentModel : Model) : Model * Cmd<Msg> =
     match msg with
     | NavBarMsg -> init ()
     | CommandMsg cmd ->
-        let newModel =
-            currentModel
-            |> snd
+        let ds, cs, es =
+            currentModel.Events
             |> Implementation.processCommand cmd
 
-        newModel, Cmd.none
+        {
+            Description = ds
+            Commands = cs
+            Events = es
+        } , Cmd.none
 
 
 // === STYLES ===
@@ -57,7 +70,7 @@ let flexColumnStyle =
 
 let bodyContainerStyle = 
     Style [ CSSProp.Top "0"
-            CSSProp.MarginTop "80px"
+            CSSProp.MarginTop "60px"
             CSSProp.Display DisplayOptions.Flex
             CSSProp.FlexDirection "column" ]
 
@@ -82,34 +95,61 @@ let createButtons dispatch cl =
                  style ] [ str (c |> Protocol.printCommand) ]
     )
 
+
 let navBar dispatch = Views.NavBar.view "GenAPLS" NavBarMsg dispatch
 
-let bodyContainer style body =
-    div [ style ]  [ body ] 
 
-let view (model : Model) (dispatch : Msg -> unit) =
-    let body = 
-        model 
-        |> fst 
+let bodyContainer style body =
+    div [ style ]  body 
+
+
+
+let createHeader model =
+    if model.Description |> List.isEmpty then
+        [ "This is what happened:" ]
+    else
+        model.Description
+    |> List.map (fun s ->
+        s
+        |> str
+        |> List.singleton
+        |> typography [ TypographyProp.Variant TypographyVariant.H5 ]
+        |> List.singleton
+        |> listItem []
+    )
+    |> list []
+
+
+let createBody dispatch model = 
+    let header =
+        model |> createHeader
+
+    let cmds =
+        model.Commands 
         |> createButtons (CommandMsg >> dispatch)
         |> (fun bs ->
             if bs |> List.isEmpty |> not then 
                 bs
                 |> div [ flexColumnStyle ]
             else
-                model
-                |> snd
+                model.Events
                 |> List.map (Protocol.printEvent)
-                |> List.map (fun s -> 
-                    listItem [] [ (listItemText [] [ str s ]) ]
+                |> List.mapi (fun i s -> 
+                    let s = sprintf "%i. %s" (i + 1) s
+                    listItem [] 
+                             [ listItemText [] [ str s ] ]
                 )
                 |> list []
         )
 
+    [ header; cmds ] |> bodyContainer bodyContainerStyle
+
+let view (model : Model) (dispatch : Msg -> unit) =
+
     div [ mainDivStyle ]
         [ 
             yield dispatch |> navBar 
-            yield body |> bodyContainer bodyContainerStyle
+            yield model |> createBody dispatch 
         ]  
 
 

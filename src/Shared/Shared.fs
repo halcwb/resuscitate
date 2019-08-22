@@ -1,7 +1,6 @@
 namespace Shared
 
-type Counter = { Value : int }
-
+type Description = string
 
 type Observation =
     | Unresponsive
@@ -59,9 +58,9 @@ type RemoveNonRepeatableFromBlock =
 type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
 
 type GetCommandsFromProtocolItem =
-    Event list -> ProtocolItem -> Command list
+    Event list -> ProtocolItem -> Description list * Command list
 
-type ProcessCommand = Command -> Event list -> Command list * Event list
+type ProcessCommand = Command -> Event list -> Description list * Command list * Event list
 
 module Protocol =
 
@@ -250,8 +249,40 @@ module Protocol =
             | Amiodarone -> "Give AMIODARONE"
 
 
-module Implementation =
+    let getInterventionDescr = function
+        | BLS ->    
+            [
+                "Give 5 Initial Breaths"
+                "Start CPR (15:2)"
+                "Attach Defibrillator/Monitor"
+            ]
+        | CPR -> 
+            [
+                "Resume CPR (15:2) for 2 min"
+            ]
+        | ChargeDefib -> 
+            [
+                "Charge Defibrillator 4 Joules/kg"
+            ]
+        | DischargeDefib -> 
+            [ 
+                "Discharge Defibrillator"
+            ]
+        | Shock -> 
+            [ 
+                "Apply Shock"
+            ]
+        | Adrenalin -> 
+            [
+                "Give Adrenalin 10 mcg/kg"
+            ]
+        | Amiodarone -> 
+            [ 
+                "Give Amiodarone 5 mg/kg"
+            ]
 
+
+module Implementation =
 
     let getCurrentProtocolBranch : GetCurrentProtocolBlock =
         fun p es ->
@@ -331,15 +362,22 @@ module Implementation =
                 | NonRepeatable b -> b
 
             if n >= 0 && ((ib.Interventions |> List.length) > n) then 
-                ib.Interventions.[n]
-                |> Intervene
-                |> List.singleton
+                let cs =
+                    ib.Interventions.[n]
+                    |> List.singleton
+                cs |> List.collect Protocol.getInterventionDescr ,
+                cs |> List.map Intervene
+
             else 
                 ib.Evaluation
                 |> function 
-                | CheckForSignsOfLife obs 
-                | CheckRhythm obs -> obs |> List.map Observe 
-                | Finished -> []
+                | CheckForSignsOfLife obs ->
+                    [ "Check for Signs Of Life" ], 
+                    obs |> List.map Observe 
+                | CheckRhythm obs -> 
+                    [ "Check Rhythm" ],
+                    obs |> List.map Observe 
+                | Finished -> [], []
 
 
     let getCommands es =
@@ -348,7 +386,7 @@ module Implementation =
         |> Option.bind ((removeNonRepeatableFromBranch es) >> Some)
         |> Option.bind (getCurrentProtocolItem)
         |> Option.bind ((getCommandsFromProtocolItem es) >> Some)
-        |> Option.defaultValue []
+        |> Option.defaultValue ([], [])
 
     let init es =
         es
@@ -362,6 +400,6 @@ module Implementation =
                 | Intervene x -> Intervened x
                 |> List.singleton
                 |> List.append es
-            let cs = es |> getCommands
+            let (ds, cs) = es |> getCommands
 
-            cs, es
+            ds, cs, es
