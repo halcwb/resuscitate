@@ -8,7 +8,6 @@ open Giraffe
 open Saturn
 open Shared
 
-
 let tryGetEnv = System.Environment.GetEnvironmentVariable >> function null | "" -> None | x -> Some x
 
 let publicPath = Path.GetFullPath "../Client/public"
@@ -20,7 +19,7 @@ let port =
 let webApp = router {
     get "/api/init" (fun next ctx ->
         task {
-            let counter = {Value = 42}
+            let counter = 0 // ToDo remove, this is a stub.
             return! json counter next ctx
         })
 }
