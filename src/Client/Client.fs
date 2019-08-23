@@ -76,7 +76,7 @@ type Msg =
 let init () : Model * Cmd<Msg> =
     let initialModel = 
         {
-            Description = [ "Start the protocol when the patient is Non Responsive" ]
+            Description = [ "Start the protocol when the patient is Non Responsive", "" ]
             Commands = [ Observe NonResponsive ]
             Events = []
             Duration = None
@@ -90,7 +90,7 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
     | CommandMsg cmd ->
         let model =
             match cmd with
-            | Intervene CPR2Min -> 
+            | Intervene CPR2MinStart -> 
                 {
                     model with
                         Duration = Timer.init () |> Some
@@ -106,11 +106,13 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
             model.Events
             |> Implementation.processCommand cmd
 
-        ds 
-        |> List.map (fun s ->
-            s.Replace("/", " or ").Replace("(15:2", "")
-        )
-        |> List.iter Speech.speak 
+        if cs |> List.isEmpty then 
+            "The protocol has finished, results are shown"
+            |> Speech.speak
+        else
+            ds 
+            |> List.map snd
+            |> List.iter Speech.speak 
 
         {   
             model with
@@ -139,7 +141,7 @@ let flexColumnStyle =
 
 let bodyContainerStyle = 
     Style [ CSSProp.Top "0"
-            CSSProp.MarginTop "60px"
+            CSSProp.MarginTop "40px"
             CSSProp.Padding "20px"
             CSSProp.Display DisplayOptions.Flex
             CSSProp.FlexDirection "column" ]
@@ -176,14 +178,21 @@ let bodyContainer style body =
 
 let createHeader model =
     if model.Description |> List.isEmpty then
-        [ "This is what happened:" ]
+        let start = 
+            model.Events
+            |> List.map fst
+            |> List.rev
+            |> List.tryHead
+            |> Option.defaultValue DateTime.Now
+        [ (sprintf "On %s. This is what happened:" (start.ToString("dd-MM-yy"))) ]
     else
         model.Description
+        |> List.map fst
     |> List.map (fun s ->
         s
         |> str
         |> List.singleton
-        |> typography [ TypographyProp.Variant TypographyVariant.H5 ]
+        |> typography [ TypographyProp.Variant TypographyVariant.H6 ]
         |> List.singleton
         |> listItem []
     )
@@ -203,7 +212,7 @@ let createBody dispatch model =
             model.Events
             |> List.map (snd >> Protocol.printEvent)
             |> List.map2 (fun (dt : DateTime) s -> 
-                let dt = dt.ToString("HH:mm")
+                let dt = dt.ToString("HH:mm:ss")
                 let s = sprintf "%s. %s" dt s
                 listItem [] 
                          [ listItemText [] [ str s ] ]
@@ -216,7 +225,7 @@ let createBody dispatch model =
             d
             |> Timer.secondsPast
             |> fun ts -> 
-                sprintf "Duration: %i minutes %i seconds" ts.Minutes ts.Seconds
+                sprintf "CPR Duration: %i minutes %i seconds" ts.Minutes ts.Seconds
                 |> str
                 |> List.singleton
             |> typography [ TypographyProp.Variant TypographyVariant.H6
