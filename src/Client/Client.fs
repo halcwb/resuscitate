@@ -14,6 +14,15 @@ open Fable.MaterialUI.Themes
 
 open Shared
 
+
+module Speech =
+
+    open Fable.Core
+
+    [<Emit("window.speechSynthesis.speak(new SpeechSynthesisUtterance($0));")>]
+    let speak s = ()
+
+
 module Timer =
 
     open Browser
@@ -96,6 +105,12 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
         let ds, cs, es =
             model.Events
             |> Implementation.processCommand cmd
+
+        ds 
+        |> List.map (fun s ->
+            s.Replace("/", " or ").Replace("(15:2", "")
+        )
+        |> List.iter Speech.speak 
 
         {   
             model with
@@ -188,7 +203,7 @@ let createBody dispatch model =
             model.Events
             |> List.map (snd >> Protocol.printEvent)
             |> List.map2 (fun (dt : DateTime) s -> 
-                let dt = dt.ToString("hh:mm")
+                let dt = dt.ToString("HH:mm")
                 let s = sprintf "%s. %s" dt s
                 listItem [] 
                          [ listItemText [] [ str s ] ]
