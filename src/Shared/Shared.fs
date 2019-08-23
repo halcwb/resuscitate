@@ -1,9 +1,11 @@
 namespace Shared
 
+open System
+
 type Description = string
 
 type Observation =
-    | Unresponsive
+    | NonResponsive
     | NoSignsOfLife
     | SignsOfLife
     | Shockable
@@ -23,6 +25,7 @@ type Intervention =
     | CPRStart
     | CPR2Min
     | CPRStop
+    | CPR2MinStop
     | ChargeDefib
     | DischargeDefib
     | Shock
@@ -62,12 +65,15 @@ type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
 type GetCommandsFromProtocolItem =
     Event list -> ProtocolItem -> Description list * Command list
 
-type ProcessCommand = Command -> Event list -> Description list * Command list * Event list
+type ProcessCommand = 
+    Command 
+        -> (DateTime * Event) list 
+        -> Description list * Command list * (DateTime * Event) list
 
 module Protocol =
 
-    let unresponsive : ProtocolBlock =
-        Unresponsive,
+    let nonresponsive : ProtocolBlock =
+        NonResponsive,
         [
             {
                 Interventions = []
@@ -93,14 +99,14 @@ module Protocol =
         NonShockable,
         [
             {
-                Interventions = [ CPR2Min; CPRStop ]
+                Interventions = [ CPR2Min; CPR2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
 
             {
-                Interventions = [ CPR2Min; Adrenalin; CPRStop ]
+                Interventions = [ CPR2Min; Adrenalin; CPR2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -123,48 +129,48 @@ module Protocol =
         [
             // First Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Second Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Third Shock
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fourth Shock
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fifth Shock
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; Amiodarone; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Continue ...
             {
-                Interventions = [ Shock; CPR2Min; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
             {
-                Interventions = [ Shock; CPR2Min; Adrenalin; ChargeDefib; CPRStop ]
+                Interventions = [ Shock; CPR2Min; Adrenalin; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -175,7 +181,7 @@ module Protocol =
         ChangeToNonShockable,
         [
             {
-                Interventions = [ CPR2Min; DischargeDefib; CPRStop ]
+                Interventions = [ CPR2Min; DischargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -193,7 +199,7 @@ module Protocol =
 
     let resuscitation : Protocol =
         [
-            unresponsive            // Start with an unresponsive patient
+            nonresponsive           // Start with an non responsive patient
             noSignsOfLife           // When there are no signs of life
             changeToShockable       // Change to the shockable rhythm block 
             nonShockable            // Start with a non shockable rhythm
@@ -207,7 +213,7 @@ module Protocol =
         match e with
         | Observed o ->
             match o with
-            | Unresponsive -> "The patient was Non Responsive"
+            | NonResponsive -> "The patient was Non Responsive"
             | NoSignsOfLife -> "The patient showed No Signs of Life"
             | SignsOfLife -> "The patient showed Signs of Life"
             | Shockable -> "A Shockable rhythm was observed"
@@ -220,7 +226,7 @@ module Protocol =
             match i with
             | BLS -> "Basic Life Support was given"
             | CPRStart | CPR2Min -> "Cardio Pulmonary Resuscitation was Started"
-            | CPRStop -> "Cardio Pulmonary Resuscitation was Stopped"
+            | CPRStop | CPR2MinStop -> "Cardio Pulmonary Resuscitation was Stopped"
             | ChargeDefib -> "The Defibrillator was Charged"
             | DischargeDefib -> "The Defibrillator was Discharged"
             | Shock -> "A Shock was given"
@@ -232,7 +238,7 @@ module Protocol =
         match c with
         | Observe o ->
             match o with
-            | Unresponsive -> "The patient is NON RESPONSIVE"
+            | NonResponsive -> "The patient is NON RESPONSIVE"
             | NoSignsOfLife -> "The patient shows NO SIGNS OF LIFE"
             | SignsOfLife -> "The patient shows SIGNS OF LIFE"
             | Shockable -> "A SHOCKABLE rhythm is observed"
@@ -245,7 +251,7 @@ module Protocol =
             match i with
             | BLS -> "Start BLS"
             | CPRStart | CPR2Min -> "Resume CPR"
-            | CPRStop -> "Stop CPR"
+            | CPRStop | CPR2MinStop -> "Stop CPR"
             | ChargeDefib -> "CHARGE the Defibrillator"
             | DischargeDefib -> "DISCHARGE the Defibrillator"
             | Shock -> "Apply a SHOCK"
@@ -269,6 +275,10 @@ module Protocol =
                 "Resume CPR (15:2) for 2 min"
             ]
         | CPRStop ->
+            [
+                "Stop CPR"
+            ]
+        | CPR2MinStop ->
             [
                 "Stop CPR after 2 min"
             ]
@@ -408,10 +418,13 @@ module Implementation =
         fun cmd es ->
             let es =
                 match cmd with
-                | Observe x -> Observed x
-                | Intervene x -> Intervened x
+                | Observe x   -> DateTime.Now, Observed x
+                | Intervene x -> DateTime.Now, Intervened x
                 |> List.singleton
                 |> List.append es
-            let (ds, cs) = es |> getCommands
+            let (ds, cs) = 
+                es
+                |> List.map snd
+                |> getCommands
 
             ds, cs, es

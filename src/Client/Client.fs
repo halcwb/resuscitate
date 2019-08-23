@@ -1,5 +1,6 @@
 module Client
 
+open System
 open Elmish
 open Elmish.React
 open Fable.React
@@ -15,7 +16,6 @@ open Shared
 
 module Timer =
 
-    open System
     open Browser
     
     type Model = 
@@ -54,7 +54,7 @@ type Model =
     { 
         Description : Description list
         Commands : Command list
-        Events: Event list
+        Events: (DateTime * Event) list
         Duration : Timer.Model Option
     }
 
@@ -66,14 +66,10 @@ type Msg =
 
 let init () : Model * Cmd<Msg> =
     let initialModel = 
-        let es = [ Observed Unresponsive ]
-        let ds, cs =
-            es
-            |> Implementation.getCommands
         {
-            Description = ds
-            Commands = cs
-            Events = es
+            Description = [ "Start the protocol when the patient is Non Responsive" ]
+            Commands = [ Observe NonResponsive ]
+            Events = []
             Duration = None
         }
 
@@ -90,7 +86,7 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                     model with
                         Duration = Timer.init () |> Some
                 }
-            | Intervene CPRStop ->
+            | Intervene CPR2MinStop  ->
                 {
                     model with
                         Duration = None
@@ -190,12 +186,13 @@ let createBody dispatch model =
             |> div [ flexColumnStyle ]
         else
             model.Events
-            |> List.map (Protocol.printEvent)
-            |> List.mapi (fun i s -> 
-                let s = sprintf "%i. %s" (i + 1) s
+            |> List.map (snd >> Protocol.printEvent)
+            |> List.map2 (fun (dt : DateTime) s -> 
+                let dt = dt.ToString("hh:mm")
+                let s = sprintf "%s. %s" dt s
                 listItem [] 
-                            [ listItemText [] [ str s ] ]
-            )
+                         [ listItemText [] [ str s ] ]
+            ) (model.Events |> List.map fst)
             |> list []
 
     let duration =
@@ -226,7 +223,7 @@ let view (model : Model) (dispatch : Msg -> unit) =
     div [ mainDivStyle ]
         [ 
             yield dispatch |> navBar 
-            yield model |> createBody dispatch 
+            yield model    |> createBody dispatch 
         ]  
 
 let subscription _ =
