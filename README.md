@@ -1,6 +1,11 @@
-# SAFE Template
+# GENAPLS
 
-This template can be used to generate a full-stack web application using the [SAFE Stack](https://safe-stack.github.io/). It was created using the dotnet [SAFE Template](https://safe-stack.github.io/docs/template-overview/). If you want to learn more about the template why not start with the [quick start](https://safe-stack.github.io/docs/quickstart/) guide?
+The application provides decision support for Advanced Pediatric Life Support. 
+
+The most recent version of this application can be found [here](http://genapls.nl)
+
+The template used for this app is the [SAFE Stack](https://safe-stack.github.io/). It was created using the dotnet [SAFE Template](https://safe-stack.github.io/docs/template-overview/). If you want to learn more about the template why not start with the [quick start](https://safe-stack.github.io/docs/quickstart/) guide?
+
 
 ## Install pre-requisites
 
@@ -37,3 +42,15 @@ If you want to know more about the full Azure Stack and all of it's components (
 ## Troubleshooting
 
 * **fake not found** - If you fail to execute `fake` from command line after installing it as a global tool, you might need to add it to your `PATH` manually: (e.g. `export PATH="$HOME/.dotnet/tools:$PATH"` on unix) - [related GitHub issue](https://github.com/dotnet/cli/issues/9321)
+
+## Conventions
+
+Commit messages with:
+
+* feat: new feature
+* fix: fix a bug or problem
+* docs: document
+* refactor: refactoring
+* perf: improve performance
+* test: add test
+* chore: do a chore (build, libs, etc..)
