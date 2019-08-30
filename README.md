@@ -1,4 +1,4 @@
-# GENAPLS
+# Resuscitate
 
 The application provides decision support for Advanced Pediatric Life Support. 
 
