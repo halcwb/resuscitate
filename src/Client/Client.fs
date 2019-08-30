@@ -13,7 +13,7 @@ open Fable.MaterialUI.Props
 open Fable.MaterialUI.Themes
 
 open Shared
-
+open Views
 
 module Speech =
 
@@ -65,10 +65,11 @@ type Model =
         Commands : Command list
         Events: (DateTime * Event) list
         Duration : Timer.Model Option
+        Volume : bool
     }
 
 type Msg =
-    | NavBarMsg
+    | NavBarMsg of NavBar.Msg
     | CommandMsg of Command
     | TimerMsg of Timer.Msg
 
@@ -80,13 +81,24 @@ let init () : Model * Cmd<Msg> =
             Commands = [ Observe NonResponsive ]
             Events = []
             Duration = None
+            Volume = true
         }
 
     initialModel, Cmd.none
 
 let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
     match msg with
-    | NavBarMsg -> init ()
+    | NavBarMsg msg -> 
+        match msg with
+        | NavBar.Reset -> 
+            let newModel, cmd = init()
+            { newModel with Volume = model.Volume }, cmd
+
+        | NavBar.ToggleVolume ->
+            if model.Volume |> not then
+                Speech.speak "Volume is now on"
+            { model with Volume = model.Volume |> not }, []
+
     | CommandMsg cmd ->
         let model =
             match cmd with
@@ -106,13 +118,15 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
             model.Events
             |> Implementation.processCommand cmd
 
-        if cs |> List.isEmpty then 
-            "The protocol has finished, results are shown"
-            |> Speech.speak
-        else
-            ds 
-            |> List.map snd
-            |> List.iter Speech.speak 
+        if model.Volume then
+            if cs |> List.isEmpty then 
+                "The protocol has finished, results are shown"
+                |> Speech.speak
+            else
+                ds 
+                |> List.map snd
+                |> List.filter (fun s -> s |> String.IsNullOrWhiteSpace |> not)
+                |> List.iter Speech.speak 
 
         {   
             model with
@@ -120,6 +134,7 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                 Commands = cs
                 Events = es
         } , Cmd.none
+
     | TimerMsg msg ->
         { 
             model with
@@ -169,11 +184,32 @@ let createButtons dispatch cl =
     )
 
 
-let navBar dispatch = Views.NavBar.view "GenAPLS" NavBarMsg dispatch
+let navBar model dispatch = 
+    Views.NavBar.view 
+        "GenAPLS" 
+        model.Volume 
+        (NavBarMsg >> dispatch)
 
 
 let bodyContainer style body =
     div [ style ]  body 
+
+
+let createDescription  model =
+    if model.Description |> List.isEmpty then []
+    else
+        model.Description
+        |> List.map fst
+        |> List.skip 1
+        |> List.map (fun s ->
+            s
+            |> str
+            |> List.singleton
+            |> typography [ TypographyProp.Variant TypographyVariant.Body1 ]
+            |> List.singleton
+            |> listItem []
+        )
+    |> list []
 
 
 let createHeader model =
@@ -188,6 +224,7 @@ let createHeader model =
     else
         model.Description
         |> List.map fst
+        |> List.take 1
     |> List.map (fun s ->
         s
         |> str
@@ -219,6 +256,8 @@ let createBody dispatch model =
             ) (model.Events |> List.map fst)
             |> list []
 
+    let description = model |> createDescription
+
     let duration =
         model.Duration
         |> Option.map (fun d -> 
@@ -239,14 +278,17 @@ let createBody dispatch model =
     [ 
         yield header
         yield cmds
-        if duration |> Option.isSome then yield duration |> Option.get 
+        yield description
+        if duration |> Option.isSome then 
+            yield duration 
+                  |> Option.get 
     ] |> bodyContainer bodyContainerStyle
 
 let view (model : Model) (dispatch : Msg -> unit) =
 
     div [ mainDivStyle ]
         [ 
-            yield dispatch |> navBar 
+            yield dispatch |> navBar model
             yield model    |> createBody dispatch 
         ]  
 

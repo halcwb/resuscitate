@@ -126,15 +126,28 @@ module Protocol =
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
-            } |> Repeatable
+            } |> NonRepeatable
 
             {
                 Interventions = [ CPR2MinStart; Consider5H5T; CPR2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
+            } |> NonRepeatable
+
+            {
+                Interventions = [ CPR2MinStart; Adrenalin; CPR2MinStop ]
+                Evaluation = 
+                    [ NonShockable; ChangeToShockable; ROSC ]
+                    |> CheckRhythm
             } |> Repeatable
 
+            {
+                Interventions = [ CPR2MinStart; CPR2MinStop ]
+                Evaluation = 
+                    [ NonShockable; ChangeToShockable; ROSC ]
+                    |> CheckRhythm
+            } |> Repeatable
         ]
 
     let changeToShockable : ProtocolBlock =
@@ -279,7 +292,7 @@ module Protocol =
             | ROSC -> "There is a ROSC"
         | Intervene i ->
             match i with
-            | Initial5 -> "5 Initial Breaths Started"
+            | Initial5 -> "5 Initial Breaths Given"
             | Monitor -> "Defibrillator/Monitor Attached"
             | CPRStart | CPR2MinStart -> "CPR Resumed"
             | CPRStop | CPR2MinStop -> "CPR Paused"
@@ -289,7 +302,7 @@ module Protocol =
             | VascularAccess -> "Vascular Access Obtained"
             | Adrenalin -> "ADRENALIN Given"
             | Amiodarone -> "AMIODARONE Given"
-            | Consider5H5T -> "5Hs and 5Ts were considered"
+            | Consider5H5T -> "Causes were considered"
 
 
     let getInterventionDescr : Intervention -> Description list = function
@@ -343,14 +356,15 @@ module Protocol =
             ]
         | Consider5H5T -> 
             [ 
-                "- Hypoxia", "Consider Hypoxia"
-                "- Hypovoleamia", "hypo volemia"
-                "- Hypothermia", "hypo thermia"
-                "- Hypo/Hyperkalaemia", "hypo or hyper kalemia or metabolic"
-                "- Tensionpneumothorax", "tension pneumo thorax"
-                "- Thrombosis", "thrombosis"
-                "- Tamponade", "cardiac tamponade"
-                "- Toxic", "Or toxic causes"
+                "Consider causes", "Consider causes"
+                "- Hypoxia", ""
+                "- Hypovoleamia", ""
+                "- Hypothermia", ""
+                "- Hypo/Hyperkalaemia", ""
+                "- Tensionpneumothorax", ""
+                "- Thrombosis", ""
+                "- Tamponade", ""
+                "- Toxic", ""
             ]
 
 
