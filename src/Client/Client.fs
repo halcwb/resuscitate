@@ -12,6 +12,8 @@ open Fable.MaterialUI.Core
 open Fable.MaterialUI.Props
 open Fable.MaterialUI.Themes
 
+open Extensions.Fable.MaterialUI.Core
+
 open Shared
 open Views
 
@@ -192,7 +194,7 @@ let navBar model dispatch =
 
 
 let bodyContainer style body =
-    div [ style ]  body 
+    container [ style; MaxWidth ContainerMaxWidth.Sm ]  body 
 
 
 let createDescription  model =

@@ -71,7 +71,8 @@ publishnuget.cmd
 !/src/
 !/src/Server/
 !/src/Client/
-!/src/Client/Public/
+!/src/Client/public/
+!/src/Client/Extensions/
 !/src/Shared/
 
 
