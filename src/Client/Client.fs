@@ -116,7 +116,7 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                 }
             | _ -> model
 
-        let ds, cs, es =
+        let { Descriptions = ds; Commands = cs; Events = es}  =
             model.Events
             |> Implementation.processCommand cmd
 

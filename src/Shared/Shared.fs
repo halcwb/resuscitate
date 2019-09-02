@@ -80,10 +80,17 @@ type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
 type GetCommandsFromProtocolItem =
     Event list -> ProtocolItem -> Description list * Command list
 
+type ProcessedCommand =
+    {
+        Descriptions : Description list
+        Commands : Command list
+        Events : Event list
+    }
+
 type ProcessCommand = 
     Command 
         -> Event list 
-        -> Description list * Command list * Event list
+        -> ProcessedCommand
 
 module Protocol =
 
@@ -382,6 +389,18 @@ module Protocol =
 
 module Implementation =
 
+    let createObservedEvent o = { DateTime = DateTime.Now; Observation = o } |> Observed
+
+    let createIntervededEvent i = { DateTime = DateTime.Now; Intervention = i } |> Intervened
+
+    let eventEqsObservation o = function
+        | Observed x -> x.Observation = o
+        | Intervened _ -> false
+
+    let eventEqsIntervantion i = function
+        | Intervened x -> x.Intervention = i
+        | Observed _ -> false
+
     let getCurrentProtocolBranch : GetCurrentProtocolBlock =
         fun p es ->
             let lastObs =
@@ -505,4 +524,8 @@ module Implementation =
                 es
                 |> getCommands
 
-            ds, cs, es
+            { 
+                Descriptions = ds
+                Commands  = cs
+                Events = es 
+            }
