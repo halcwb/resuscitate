@@ -23,7 +23,10 @@ type Evaluation =
     | Finished
 
 type Intervention =
+    | ShoutForHelp
+    | OpenAirway
     | Initial5
+    | CallForTeam
     | Monitor
     | CPRStart
     | CPR2MinStart
@@ -98,7 +101,7 @@ module Protocol =
         NonResponsive,
         [
             {
-                Interventions = []
+                Interventions = [ ShoutForHelp; OpenAirway]
                 Evaluation = 
                     [ NoSignsOfLife; SignsOfLife ]
                     |> CheckForSignsOfLife
@@ -110,7 +113,7 @@ module Protocol =
         NoSignsOfLife,
         [
                 {
-                    Interventions = [ Initial5 ] // Start BLS
+                    Interventions = [ CallForTeam; Initial5 ] // Start BLS
                     Evaluation = 
                         [ NoROSC; ROSC ]
                         |> CheckForCirculation
@@ -281,6 +284,9 @@ module Protocol =
             |> sprintf "%s. %s" (o.DateTime.ToString("HH:mm:ss"))
         | Intervened i ->
             match i.Intervention with
+            | ShoutForHelp -> "Help was Invoked"
+            | OpenAirway -> "Airway was Opened"
+            | CallForTeam -> "Resuscitation Team was Called"
             | Initial5 -> "5 Initial Breaths were Given"
             | Monitor -> "Defibrillator/Monitor was Attached"
             | CPRStart | CPR2MinStart -> "Cardio Pulmonary Resuscitation was Started"
@@ -311,6 +317,9 @@ module Protocol =
             | ROSC -> "There is a ROSC"
         | Intervene i ->
             match i with
+            | ShoutForHelp -> "Help Called"
+            | OpenAirway -> "Airway Opened"
+            | CallForTeam -> "Resuscitation Team Called"
             | Initial5 -> "5 Initial Breaths Given"
             | Monitor -> "Defibrillator/Monitor Attached"
             | CPRStart | CPR2MinStart -> "CPR Resumed"
@@ -325,13 +334,25 @@ module Protocol =
 
 
     let getInterventionDescr : Intervention -> Description list = function
+        | ShoutForHelp -> 
+            [
+                "Get Help", "Get help"
+            ]
+        | OpenAirway ->
+            [
+                "Open Airway", "Open the airway"
+            ]
+        | CallForTeam ->
+            [
+                "Call the Resuscitation Team", "Call the resuscitation team"
+            ]
         | Initial5 ->    
             [
-                "Give 5 Initial Breaths", "Give 5 Initial Breaths"
+                "Give 5 Initial Breaths", "Give 5 initial breaths"
             ]
         | Monitor ->    
             [
-                "Attach Defibrillator/Monitor", "Attach a Defibrillator and or monitor"
+                "Attach Defibrillator/Monitor", "Attach a defibrillator and or monitor"
             ]
         | CPRStart -> 
             [
