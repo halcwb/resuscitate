@@ -65,7 +65,7 @@ type Model =
     { 
         Description : Description list
         Commands : Command list
-        Events: (DateTime * Event) list
+        Events: Event list
         Duration : Timer.Model Option
         Volume : bool
     }
@@ -218,7 +218,11 @@ let createHeader model =
     if model.Description |> List.isEmpty then
         let start = 
             model.Events
-            |> List.map fst
+            |> List.map (fun e -> 
+                match e with
+                | Observed x   -> x.DateTime
+                | Intervened x -> x.DateTime
+            )
             |> List.rev
             |> List.tryHead
             |> Option.defaultValue DateTime.Now
@@ -249,14 +253,10 @@ let createBody dispatch model =
             |> div [ flexColumnStyle ]
         else
             model.Events
-            |> List.map (snd >> Protocol.printEvent)
-            |> List.map2 (fun (dt : DateTime) s -> 
-                let dt = dt.ToString("HH:mm:ss")
-                let s = sprintf "%s. %s" dt s
+            |> List.map (fun e -> 
                 listItem [] 
-                         [ listItemText [] [ str s ] ]
-            ) (model.Events |> List.map fst)
-            |> list []
+                         [ listItemText [] [ str (e |> Protocol.printEvent) ] ]
+            )             |> list []
 
     let description = model |> createDescription
 

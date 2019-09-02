@@ -52,8 +52,18 @@ type ProtocolBlock = Observation * ProtocolItem list
 type Protocol = ProtocolBlock list
 
 type Event =
-    | Observed of Observation
-    | Intervened of Intervention
+    | Observed of ObservedEvent
+    | Intervened of IntervenedEvent
+and ObservedEvent =
+    {
+        DateTime : DateTime
+        Observation : Observation
+    }
+and IntervenedEvent =
+    {
+        DateTime : DateTime
+        Intervention : Intervention
+    }
 
 type Command = 
     | Observe of Observation
@@ -72,8 +82,8 @@ type GetCommandsFromProtocolItem =
 
 type ProcessCommand = 
     Command 
-        -> (DateTime * Event) list 
-        -> Description list * Command list * (DateTime * Event) list
+        -> Event list 
+        -> Description list * Command list * Event list
 
 module Protocol =
 
@@ -250,7 +260,7 @@ module Protocol =
     let printEvent e =
         match e with
         | Observed o ->
-            match o with
+            match o.Observation with
             | NonResponsive -> "The patient was Non Responsive"
             | NoSignsOfLife -> "The patient showed No Signs of Life"
             | SignsOfLife -> "The patient showed Signs of Life"
@@ -261,8 +271,9 @@ module Protocol =
             | ChangeToShockable -> "The rhythm changed to a Shockable rhythm"
             | ChangeToROSC -> "There was a Return Of Spontaneous Circulation"
             | ROSC -> "There was a Return Of Spontaneous Circulation"
+            |> sprintf "%s. %s" (o.DateTime.ToString("HH:mm:ss"))
         | Intervened i ->
-            match i with
+            match i.Intervention with
             | Initial5 -> "5 Initial Breaths were Given"
             | Monitor -> "Defibrillator/Monitor was Attached"
             | CPRStart | CPR2MinStart -> "Cardio Pulmonary Resuscitation was Started"
@@ -274,6 +285,7 @@ module Protocol =
             | Adrenalin -> "Adrenalin was given"
             | Amiodarone -> "Amiodarone was given"
             | Consider5H5T -> "5H and 5T were considered"
+            |> sprintf "%s. %s" (i.DateTime.ToString("HH:mm:ss"))
 
 
     let printCommand c =
@@ -388,7 +400,7 @@ module Implementation =
             | None -> None
             | Some o ->
                 p
-                |> List.tryFind (fst >> ((=) o))
+                |> List.tryFind (fst >> ((=) o.Observation))
 
     let removeFromProtocolItemList n protocolItems =
             let c = n // + 1 // Store the original observation count
@@ -412,7 +424,7 @@ module Implementation =
                 |> List.filter (fun e ->
                     match e with
                     | Intervened _ -> false
-                    | Observed o -> o = obs
+                    | Observed o -> o.Observation = obs
                 )
                 |> List.length
             
@@ -485,13 +497,12 @@ module Implementation =
         fun cmd es ->
             let es =
                 match cmd with
-                | Observe x   -> DateTime.Now, Observed x
-                | Intervene x -> DateTime.Now, Intervened x
+                | Observe x   -> { DateTime = DateTime.Now ; Observation = x }  |> Observed
+                | Intervene x -> { DateTime = DateTime.Now ; Intervention = x } |> Intervened
                 |> List.singleton
                 |> List.append es
             let (ds, cs) = 
                 es
-                |> List.map snd
                 |> getCommands
 
             ds, cs, es
