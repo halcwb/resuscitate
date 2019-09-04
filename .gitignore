@@ -69,6 +69,7 @@ publishnuget.cmd
 # Add source files
 !/scripts/
 !/src/
+!/src/Scripts/
 !/src/Server/
 !/src/Client/
 !/src/Client/public/

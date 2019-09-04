@@ -36,6 +36,7 @@ type Intervention =
     | DischargeDefib
     | Shock
     | VascularAccess
+    | Lab
     | Adrenalin
     | Amiodarone
     | Consider5H5T
@@ -81,7 +82,7 @@ type RemoveNonRepeatableFromBlock =
 type GetCurrentProtocolItem = (int * ProtocolItem list) -> ProtocolItem Option
 
 type GetCommandsFromProtocolItem =
-    Event list -> ProtocolItem -> Description list * Command list
+    Event list -> Intervention list -> ProtocolItem -> Description list * Command list
 
 type ProcessedCommand =
     {
@@ -135,7 +136,7 @@ module Protocol =
         NonShockable,
         [
             {
-                Interventions = [ CPR2MinStart; VascularAccess; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; VascularAccess; Lab; CPR2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -186,7 +187,7 @@ module Protocol =
         [
             // First Shock
             {
-                Interventions = [ Shock; CPR2MinStart; VascularAccess; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; VascularAccess; Lab; ChargeDefib; CPR2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -295,6 +296,7 @@ module Protocol =
             | DischargeDefib -> "The Defibrillator was Discharged"
             | Shock -> "A Shock was given"
             | VascularAccess -> "Vascular Access was obtained"
+            | Lab -> "Lab was requested"
             | Adrenalin -> "Adrenalin was given"
             | Amiodarone -> "Amiodarone was given"
             | Consider5H5T -> "5H and 5T were considered"
@@ -328,6 +330,7 @@ module Protocol =
             | DischargeDefib -> "Defibrillator Discharged"
             | Shock -> "SHOCK Given"
             | VascularAccess -> "Vascular Access Obtained"
+            | Lab -> "Lab was Requested"
             | Adrenalin -> "ADRENALIN Given"
             | Amiodarone -> "AMIODARONE Given"
             | Consider5H5T -> "Causes were considered"
@@ -386,6 +389,16 @@ module Protocol =
             [
                 "Obtain Vascular Access", "Obtain vascular access"
             ]
+        | Lab ->
+            [
+                "Request Lab", "Request lab"
+                "Glucose", ""
+                "Electrolytes", ""
+                "Blood Culture", ""
+                "Blood Type", ""
+                "Blood Gas", ""
+            ]
+
         | Adrenalin -> 
             [
                 "Give Adrenalin 10 mcg/kg", "Give Adrenalin 10 micro gram per kilogram"
@@ -481,14 +494,15 @@ module Implementation =
 
 
     let getCommandsFromProtocolItem : GetCommandsFromProtocolItem =
-        fun es pi ->
+        fun es is pi ->
+            // calculate with intervention should be run
             let n =
                 es 
                 |> List.rev
                 |> List.fold (fun a e ->
                     match e with
                     | Observed _   -> (false, a |> snd)
-                    | Intervened _ -> 
+                    | Intervened x -> 
                         if a |> fst |> not then a
                         else (true, (a |> snd) + 1)
                 ) (true, 0)
@@ -496,12 +510,37 @@ module Implementation =
 
             let ib = 
                 match pi with
-                | Repeatable b -> b
+                | Repeatable b
                 | NonRepeatable b -> b
 
-            if n >= 0 && ((ib.Interventions |> List.length) > n) then 
+            // skip the intervention that only runs once 
+            let filtered = 
+                ib.Interventions
+                |> List.filter (fun i ->
+                    if is |> List.exists ((=) i) |> not then true
+                    else 
+                        // use only events from previous intervention blocks
+                        es
+                        |> List.rev
+                        |> List.fold (fun acc e ->
+                            if acc |> fst then (true, e::(acc |> snd))
+                            else
+                                match e with
+                                | Observed _   -> (true, [])
+                                | Intervened _ -> acc
+                        ) (false, [])
+                        |> snd
+                        // look if the intervention allready happened
+                        |> List.exists (fun e ->
+                            match e with
+                            | Observed _ -> false
+                            | Intervened x -> x.Intervention = i 
+                        ) |> not
+                )
+
+            if n >= 0 && ((filtered |> List.length) > n) then 
                 let cs =
-                    ib.Interventions.[n]
+                    filtered.[n]
                     |> List.singleton
                 cs |> List.collect Protocol.getInterventionDescr ,
                 cs |> List.map Intervene
@@ -521,15 +560,15 @@ module Implementation =
                 | Finished -> [], []
 
 
-    let getCommands es =
+    let getCommands is es =
         es
         |> getCurrentProtocolBranch  Protocol.resuscitation
         |> Option.bind ((removeNonRepeatableFromBranch es) >> Some)
         |> Option.bind (getCurrentProtocolItem)
-        |> Option.bind ((getCommandsFromProtocolItem es) >> Some)
+        |> Option.bind ((getCommandsFromProtocolItem es is) >> Some)
         |> Option.defaultValue ([], [])
 
-    let init es =
+    let init is es =
         es
         |> getCommands
 
@@ -543,7 +582,7 @@ module Implementation =
                 |> List.append es
             let (ds, cs) = 
                 es
-                |> getCommands
+                |> getCommands [ VascularAccess; Lab; Consider5H5T ]
 
             { 
                 Descriptions = ds
