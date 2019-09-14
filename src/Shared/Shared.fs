@@ -31,15 +31,15 @@ type Intervention =
     | CPRStart
     | CPR2MinStart
     | CPRStop
-    | CPR2MinStop
-    | ChargeDefib
+    | CPR2MinStop of int
+    | ChargeDefib of int
     | DischargeDefib
     | Shock
     | VascularAccess
     | Lab
     | Adrenalin
     | Amiodarone
-    | Consider5H5T
+    | ConsiderCauses
 
 type InterventionBlock = 
     { 
@@ -133,38 +133,39 @@ module Protocol =
         ]
 
     let nonShockable : ProtocolBlock =
+        let cpr2MinStop = CPR2MinStop 120
         NonShockable,
         [
             {
-                Interventions = [ CPR2MinStart; VascularAccess; Lab; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; VascularAccess; Lab; cpr2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
 
             {
-                Interventions = [ CPR2MinStart; Adrenalin; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; Adrenalin; cpr2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
 
             {
-                Interventions = [ CPR2MinStart; Consider5H5T; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; ConsiderCauses; cpr2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
 
             {
-                Interventions = [ CPR2MinStart; Adrenalin; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; Adrenalin; cpr2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
             } |> Repeatable
 
             {
-                Interventions = [ CPR2MinStart; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; cpr2MinStop ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -175,7 +176,7 @@ module Protocol =
         ChangeToShockable ,
         [
             {
-                Interventions = [ CPRStart; ChargeDefib; CPRStop ]
+                Interventions = [ CPRStart; ChargeDefib 0; CPRStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -183,52 +184,54 @@ module Protocol =
         ]
 
     let shockable : ProtocolBlock =
+        let chargeDefib = ChargeDefib 105
+        let cpr2MinStop = CPR2MinStop 120
         Shockable,
         [
             // First Shock
             {
-                Interventions = [ Shock; CPR2MinStart; VascularAccess; Lab; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; VascularAccess; Lab; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Second Shock
             {
-                Interventions = [ Shock; CPR2MinStart; Consider5H5T; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; ConsiderCauses; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Third Shock
             {
-                Interventions = [ Shock; CPR2MinStart; Adrenalin; Amiodarone; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; Adrenalin; Amiodarone; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fourth Shock
             {
-                Interventions = [ Shock; CPR2MinStart; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Fifth Shock
             {
-                Interventions = [ Shock; CPR2MinStart; Adrenalin; Amiodarone; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; Adrenalin; Amiodarone; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> NonRepeatable
             // Continue ...
             {
-                Interventions = [ Shock; CPR2MinStart; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
             } |> Repeatable
             {
-                Interventions = [ Shock; CPR2MinStart; Adrenalin; ChargeDefib; CPR2MinStop ]
+                Interventions = [ Shock; CPR2MinStart; Adrenalin; chargeDefib; cpr2MinStop ]
                 Evaluation = 
                     [ Shockable; ChangeToNonShockable; ChangeToROSC ]
                     |> CheckRhythm
@@ -239,7 +242,7 @@ module Protocol =
         ChangeToNonShockable,
         [
             {
-                Interventions = [ CPR2MinStart; DischargeDefib; CPR2MinStop ]
+                Interventions = [ CPR2MinStart; DischargeDefib; CPR2MinStop 120 ]
                 Evaluation = 
                     [ NonShockable; ChangeToShockable; ROSC ]
                     |> CheckRhythm
@@ -291,15 +294,15 @@ module Protocol =
             | Initial5 -> "5 Initial Breaths were Given"
             | Monitor -> "Defibrillator/Monitor was Attached"
             | CPRStart | CPR2MinStart -> "Cardio Pulmonary Resuscitation was Started"
-            | CPRStop | CPR2MinStop -> "Cardio Pulmonary Resuscitation was Stopped"
-            | ChargeDefib -> "The Defibrillator was Charged"
+            | CPRStop | CPR2MinStop _ -> "Cardio Pulmonary Resuscitation was Stopped"
+            | ChargeDefib _ -> "The Defibrillator was Charged"
             | DischargeDefib -> "The Defibrillator was Discharged"
             | Shock -> "A Shock was given"
             | VascularAccess -> "Vascular Access was obtained"
             | Lab -> "Lab was requested"
             | Adrenalin -> "Adrenalin was given"
             | Amiodarone -> "Amiodarone was given"
-            | Consider5H5T -> "5H and 5T were considered"
+            | ConsiderCauses -> "Causes were considered"
             |> sprintf "%s. %s" (i.DateTime.ToString("HH:mm:ss"))
 
 
@@ -325,15 +328,15 @@ module Protocol =
             | Initial5 -> "5 Initial Breaths Given"
             | Monitor -> "Defibrillator/Monitor Attached"
             | CPRStart | CPR2MinStart -> "CPR Resumed"
-            | CPRStop | CPR2MinStop -> "CPR Paused"
-            | ChargeDefib -> "Defibrillator Charged"
+            | CPRStop | CPR2MinStop _ -> "CPR Paused"
+            | ChargeDefib _ -> "Defibrillator Charged"
             | DischargeDefib -> "Defibrillator Discharged"
             | Shock -> "SHOCK Given"
             | VascularAccess -> "Vascular Access Obtained"
             | Lab -> "Lab was Requested"
             | Adrenalin -> "ADRENALIN Given"
             | Amiodarone -> "AMIODARONE Given"
-            | Consider5H5T -> "Causes were considered"
+            | ConsiderCauses -> "Causes were considered"
 
 
     let getInterventionDescr : Intervention -> Description list = function
@@ -369,11 +372,11 @@ module Protocol =
             [
                 "Pause CPR", "Pause CPR"
             ]
-        | CPR2MinStop ->
+        | CPR2MinStop _ ->
             [
                 "Pause CPR after 2 min", "Continue with CPR until 2 min are over"
             ]
-        | ChargeDefib -> 
+        | ChargeDefib _ -> 
             [
                 "Charge Defibrillator 4 Joules/kg", "Charge the defibrillator with 4 joules per kilogram"
             ]
@@ -407,7 +410,7 @@ module Protocol =
             [ 
                 "Give Amiodarone 5 mg/kg", "Give Amiodarone 5 milli gram per kilogram"
             ]
-        | Consider5H5T -> 
+        | ConsiderCauses -> 
             [ 
                 "Consider causes", "Consider causes"
                 "- Hypoxia", ""
@@ -582,7 +585,7 @@ module Implementation =
                 |> List.append es
             let (ds, cs) = 
                 es
-                |> getCommands [ VascularAccess; Lab; Consider5H5T ]
+                |> getCommands [ VascularAccess; Lab; ConsiderCauses ]
 
             { 
                 Descriptions = ds

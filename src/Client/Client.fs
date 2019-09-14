@@ -67,6 +67,7 @@ type Model =
         Commands : Command list
         Events: Event list
         Duration : Timer.Model Option
+        WaitFor : int Option
         Volume : bool
     }
 
@@ -83,6 +84,7 @@ let init () : Model * Cmd<Msg> =
             Commands = [ Observe NonResponsive ]
             Events = []
             Duration = None
+            WaitFor = None
             Volume = true
         }
 
@@ -109,11 +111,13 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                     model with
                         Duration = Timer.init () |> Some
                 }
-            | Intervene CPR2MinStop  ->
+
+            | Intervene (CPR2MinStop _)  ->
                 {
                     model with
                         Duration = None
                 }
+
             | _ -> model
 
         let { Descriptions = ds; Commands = cs; Events = es}  =
@@ -135,6 +139,11 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                 Description = ds
                 Commands = cs
                 Events = es
+                WaitFor = 
+                    match cs with
+                    | [ Intervene(ChargeDefib x) ] -> Some x
+                    | [ Intervene(CPR2MinStop x) ] -> Some x
+                    | _ -> None
         } , Cmd.none
 
     | TimerMsg msg ->
@@ -143,6 +152,18 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                 Duration = 
                     model.Duration 
                     |> Option.map (Timer.update msg)
+                WaitFor = 
+                    model.WaitFor
+                    |> function 
+                    | Some x -> 
+                        match model.Duration with
+                        | None   -> None
+                        | Some d -> 
+                            let n = (d.Current - d.Start).TotalSeconds |> int
+                            if x - n > 0 then x |> Some
+                            else x - n |> Some
+
+                    | None -> None
         }, Cmd.none
 
 
@@ -154,7 +175,7 @@ let mainDivStyle = Style [ CSSProp.Padding "20px" ]
 let flexColumnStyle =
     Style [ CSSProp.Display DisplayOptions.Flex
             CSSProp.FlexDirection "column" ] 
-    
+     
 
 let bodyContainerStyle = 
     Style [ CSSProp.Top "0"
@@ -163,11 +184,16 @@ let bodyContainerStyle =
             CSSProp.Display DisplayOptions.Flex
             CSSProp.FlexDirection "column" ]
 
-let commandButtonsStyle c =
+let commandButtonsStyle w c =
     let color =
         match c with
         | Observe _ -> Fable.MaterialUI.Colors.green.``100``
-        | Intervene _ -> Fable.MaterialUI.Colors.blue.``100``
+        | Intervene _ ->
+            match w with
+            | Some x when x < 0 -> 
+                if x % 2 = 0 then Fable.MaterialUI.Colors.blue.``100``
+                else Fable.MaterialUI.Colors.red.``300``
+            | _ -> Fable.MaterialUI.Colors.blue.``100``      
 
     Style [ CSSProp.Padding "20px"
             CSSProp.Margin "10px"
@@ -176,11 +202,11 @@ let commandButtonsStyle c =
 
 // === VIEW FUNCIONS ===
 
-let createButtons dispatch cl =
+let createButtons waitFor dispatch cl =             
     cl    
     |> List.map (fun c ->
-        let style = c |> commandButtonsStyle
-        button [ OnClick (fun _ -> dispatch c)
+        let style = c |> commandButtonsStyle waitFor
+        button [ OnClick (fun _ -> dispatch c)                 
                  ButtonProp.Variant ButtonVariant.Contained
                  style ] [ str (c |> Protocol.printCommand) ]
     )
@@ -249,7 +275,7 @@ let createBody dispatch model =
     let cmds =
         if model.Commands |> List.isEmpty |> not then 
             model.Commands
-            |> createButtons (CommandMsg >> dispatch)
+            |> createButtons model.WaitFor (CommandMsg >> dispatch)
             |> div [ flexColumnStyle ]
         else
             model.Events
