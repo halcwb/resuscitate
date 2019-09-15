@@ -54,6 +54,21 @@ module Timer =
 
     let update (Tick next) model =
         { model with Current = next }
+
+    let view label model =
+        model
+        |> secondsPast
+        |> fun ts -> 
+            sprintf "%s: %i minutes %i seconds" label ts.Minutes ts.Seconds
+            |> str
+            |> List.singleton
+        |> typography [ TypographyProp.Variant TypographyVariant.H6
+                        TypographyProp.Color TypographyColor.TextSecondary
+                        Style [ CSSProp.MarginLeft "10px" 
+                                CSSProp.MarginBottom "20px"
+                                CSSProp.Position PositionOptions.Fixed
+                                CSSProp.Bottom "0" ] ]
+
         
 
 // == HELPER FUNCTIONS ==
@@ -67,6 +82,7 @@ type Model =
         Commands : Command list
         Events: Event list
         Duration : Timer.Model Option
+        TotalDuration : Timer.Model Option
         WaitFor : int Option
         Volume : bool
     }
@@ -84,6 +100,7 @@ let init () : Model * Cmd<Msg> =
             Commands = [ Observe NonResponsive ]
             Events = []
             Duration = None
+            TotalDuration = None
             WaitFor = None
             Volume = true
         }
@@ -117,7 +134,7 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                     model with
                         Duration = None
                 }
-
+                
             | _ -> model
 
         let { Descriptions = ds; Commands = cs; Events = es}  =
@@ -139,6 +156,12 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
                 Description = ds
                 Commands = cs
                 Events = es
+                TotalDuration =
+                    model.TotalDuration
+                    |> function
+                    | _ when cs |> List.isEmpty -> None
+                    | None  -> Timer.init () |> Some
+                    | Some _ -> model.TotalDuration
                 WaitFor = 
                     match cs with
                     | [ Intervene(ChargeDefib x) ] -> Some x
@@ -151,6 +174,9 @@ let update (msg: Msg) (model : Model) : Model * Cmd<Msg> =
             model with
                 Duration = 
                     model.Duration 
+                    |> Option.map (Timer.update msg)
+                TotalDuration =
+                    model.TotalDuration
                     |> Option.map (Timer.update msg)
                 WaitFor = 
                     model.WaitFor
@@ -288,20 +314,12 @@ let createBody dispatch model =
 
     let duration =
         model.Duration
-        |> Option.map (fun d -> 
-            d
-            |> Timer.secondsPast
-            |> fun ts -> 
-                sprintf "CPR Duration: %i minutes %i seconds" ts.Minutes ts.Seconds
-                |> str
-                |> List.singleton
-            |> typography [ TypographyProp.Variant TypographyVariant.H6
-                            TypographyProp.Color TypographyColor.TextSecondary
-                            Style [ CSSProp.MarginLeft "10px" 
-                                    CSSProp.MarginBottom "20px"
-                                    CSSProp.Position PositionOptions.Fixed
-                                    CSSProp.Bottom "0" ] ]
-        )
+        |> Option.map (Timer.view "CPR Duration")
+        |> function 
+        | Some d -> d |> Some
+        | None -> 
+            model.TotalDuration |> Option.map (Timer.view "Total Duration")
+
 
     [ 
         yield header
